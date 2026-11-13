@@ -8,15 +8,20 @@ middleware, error handlers, and lifespan events.
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncGenerator
 
 import structlog
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from src.api.middleware.logging_middleware import RequestLoggingMiddleware
-from src.api.routes import health, portfolio, risk, strategies
+from src.api.routes import health, market, orders, portfolio, risk, strategies
+
+# Repo-root /frontend (static dashboard, no build step)
+FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 from src.core.exceptions import TradingEngineError
 from src.infrastructure.config import get_settings
 from src.observability.logging.setup import configure_logging
@@ -78,13 +83,21 @@ def create_app() -> FastAPI:
     # --- Routes ---
     @app.get("/", include_in_schema=False)
     async def root() -> RedirectResponse:
-        """Send visitors at the bare URL to the API docs (or health check if docs are off)."""
+        """Send visitors at the bare URL to the dashboard (or API docs if it isn't bundled)."""
+        if FRONTEND_DIR.is_dir():
+            return RedirectResponse(url="/app/")
         return RedirectResponse(url="/docs" if app.docs_url else "/health/")
 
     app.include_router(health.router)
+    app.include_router(market.router)
+    app.include_router(orders.router)
     app.include_router(portfolio.router)
     app.include_router(strategies.router)
     app.include_router(risk.router)
+
+    # --- Dashboard (static files) ---
+    if FRONTEND_DIR.is_dir():
+        app.mount("/app", StaticFiles(directory=FRONTEND_DIR, html=True), name="dashboard")
 
     # --- Error Handlers ---
     @app.exception_handler(TradingEngineError)

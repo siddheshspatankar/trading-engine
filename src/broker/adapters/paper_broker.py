@@ -59,6 +59,22 @@ class PaperBrokerAdapter(BrokerAdapter):
         """Update the simulated market price for a symbol."""
         self._market_prices[symbol] = price
 
+    def mark_to_market(self, prices: dict[str, Decimal]) -> None:
+        """Revalue open positions at the latest prices (updates unrealized P&L)."""
+        for symbol, price in prices.items():
+            self._market_prices[symbol] = price
+            pos = self._positions.get(symbol)
+            if pos is not None:
+                self._positions[symbol] = pos.model_copy(update={"current_price": price})
+
+    def list_orders(self) -> list[Order]:
+        """All orders seen by this broker, newest first."""
+        return sorted(self._orders.values(), key=lambda o: o.created_at, reverse=True)
+
+    @property
+    def total_commission(self) -> Decimal:
+        return self._total_commission
+
     def _apply_slippage(self, price: Decimal, side: OrderSide) -> Decimal:
         """Apply slippage: adds to buy price, subtracts from sell price."""
         slippage = price * Decimal(str(self._slippage_bps)) / Decimal("10000")

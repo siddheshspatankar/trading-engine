@@ -41,6 +41,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Copy application source
 COPY src/ ./src/
 COPY config/ ./config/
+COPY frontend/ ./frontend/
 
 # Create non-root user for security
 RUN groupadd -r trading && useradd -r -g trading trading

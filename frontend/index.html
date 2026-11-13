@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Trading Engine · Dashboard</title>
+  <meta name="description" content="Dashboard for the AI-Native Intelligent Trading Engine (paper trading)." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 30 16 16 30 2 16z' fill='%23387ed1'/%3E%3Cpath d='M16 9 23 16 16 23 9 16z' fill='%23fff'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="topbar">
+    <div class="topbar-indices" id="indices" aria-label="Market indices">
+      <span class="muted">Loading indices…</span>
+    </div>
+
+    <div class="topbar-right">
+      <a class="brand" href="#/dashboard" aria-label="Trading Engine home">
+        <svg viewBox="0 0 32 32" width="22" height="22" aria-hidden="true">
+          <path d="M16 2 30 16 16 30 2 16z" fill="#387ed1" />
+          <path d="M16 9 23 16 16 23 9 16z" fill="#fff" />
+        </svg>
+      </a>
+
+      <button class="icon-btn watch-toggle" id="watch-toggle" type="button"
+              aria-controls="marketwatch" aria-expanded="false">Watchlist</button>
+
+      <nav class="mainnav" aria-label="Primary">
+        <a href="#/dashboard" data-nav="dashboard">Dashboard</a>
+        <a href="#/orders" data-nav="orders">Orders</a>
+        <a href="#/positions" data-nav="positions">Positions</a>
+        <a href="#/strategies" data-nav="strategies">Strategies</a>
+        <a href="#/risk" data-nav="risk">Risk</a>
+        <a href="#/funds" data-nav="funds">Funds</a>
+      </nav>
+
+      <div class="topbar-status">
+        <span class="badge" id="source-badge" title="Market data source">—</span>
+        <span class="badge badge-mode" id="mode-badge" title="Trading mode">—</span>
+        <span class="status-dot" id="engine-dot" role="img" aria-label="Engine status unknown"></span>
+        <span class="avatar" aria-hidden="true">TR</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="banner" id="banner" role="alert" hidden></div>
+
+  <div class="layout">
+    <aside class="marketwatch" id="marketwatch" aria-label="Marketwatch"></aside>
+    <main class="content" id="main" tabindex="-1"></main>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
+  <div id="modal-root"></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
