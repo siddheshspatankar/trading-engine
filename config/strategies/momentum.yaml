@@ -1,0 +1,30 @@
+# Momentum Strategy Configuration
+strategy:
+  name: momentum
+  universe:
+    - AAPL
+    - MSFT
+    - GOOGL
+    - AMZN
+    - NVDA
+    - META
+    - TSLA
+    - JPM
+    - V
+    - UNH
+
+  lookback_days: 252         # 1-year momentum window
+  skip_days: 21              # Skip most recent month (avoid reversal)
+  top_n: 5                   # Long top 5 momentum stocks
+  bottom_n: 0                # Long-only (no shorts)
+  min_data_points: 100       # Minimum bars required to rank
+
+risk:
+  max_position_pct: 0.10     # Max 10% per position
+  max_drawdown_pct: 0.15     # Circuit breaker at 15% drawdown
+  stop_loss_pct: 0.05        # 5% stop loss per position
+
+execution:
+  sizing_method: equal_weight
+  rebalance_frequency: weekly
+  order_type: LIMIT
