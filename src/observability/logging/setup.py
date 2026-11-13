@@ -48,9 +48,12 @@ def configure_logging(log_level: str = "INFO", json_logs: bool = True) -> None:
     )
 
     formatter = structlog.stdlib.ProcessorFormatter(
+        # Logs from stdlib loggers (uvicorn, sqlalchemy, etc.) get the shared
+        # processors here, while the original LogRecord is still available.
+        foreign_pre_chain=shared_processors,
+        # structlog events already ran shared_processors above, so only render here.
         processors=[
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
-            *shared_processors,
             renderer,
         ],
     )
