@@ -24,7 +24,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from decimal import Decimal
+from decimal import ROUND_DOWN, Decimal
 from typing import Any
 
 import numpy as np
@@ -216,6 +216,37 @@ class RiskEngine:
         )
 
     # ------------------------------------------------------------------
+    # Exposure helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _signed(order: Order, quantity: Decimal) -> Decimal:
+        return quantity if order.side == OrderSide.BUY else -quantity
+
+    @staticmethod
+    def _existing_qty(order: Order, portfolio: Portfolio) -> Decimal:
+        pos = portfolio.positions.get(order.symbol)
+        return pos.quantity if pos else Decimal("0")
+
+    @staticmethod
+    def _price_for(order: Order, portfolio: Portfolio, prices: dict[str, Decimal]) -> Decimal:
+        pos = portfolio.positions.get(order.symbol)
+        return (
+            prices.get(order.symbol)
+            or order.limit_price
+            or (pos.current_price if pos else None)
+            or Decimal("1")
+        )
+
+    def _reduces_exposure(self, order: Order, quantity: Decimal, portfolio: Portfolio) -> bool:
+        """True if the order moves this symbol's position closer to flat without flipping past it."""
+        existing = self._existing_qty(order, portfolio)
+        if existing == 0:
+            return False
+        new_qty = existing + self._signed(order, quantity)
+        return abs(new_qty) < abs(existing) and (new_qty == 0 or (new_qty > 0) == (existing > 0))
+
+    # ------------------------------------------------------------------
     # Individual Risk Checks
     # ------------------------------------------------------------------
 
@@ -369,24 +400,30 @@ class RiskEngine:
                 authorized_quantity=quantity,
             )
 
-        price = prices.get(order.symbol) or (order.limit_price or Decimal("1"))
+        price = self._price_for(order, portfolio, prices)
         max_pct = Decimal(str(self._settings.max_position_pct))
         max_notional = portfolio.total_equity * max_pct
 
-        # Existing position value
-        existing_pos = portfolio.positions.get(order.symbol)
-        existing_notional = Decimal("0")
-        if existing_pos and existing_pos.current_price:
-            existing_notional = abs(existing_pos.quantity * existing_pos.current_price)
+        existing_qty = self._existing_qty(order, portfolio)
+        existing_notional = abs(existing_qty) * price
+        total_notional = abs(existing_qty + self._signed(order, quantity)) * price
 
-        proposed_notional = quantity * price
-        total_notional = existing_notional + proposed_notional
+        # Orders that shrink the position (exits, partial closes) are always allowed
+        if self._reduces_exposure(order, quantity, portfolio):
+            return RiskCheckResult(
+                check_name="position_size_limit",
+                passed=True,
+                message="Order reduces existing position",
+                original_quantity=quantity,
+                authorized_quantity=quantity,
+            )
 
         if total_notional > max_notional:
-            # Reduce to fit within limit
-            allowed_notional = max(Decimal("0"), max_notional - existing_notional)
-            authorized_qty = allowed_notional / price if price > 0 else Decimal("0")
-            authorized_qty = authorized_qty.quantize(Decimal("1"))  # round to whole shares
+            # Largest quantity whose resulting position stays within the cap
+            cap_qty = max_notional / price if price > 0 else Decimal("0")
+            same_direction = existing_qty == 0 or (existing_qty > 0) == (order.side == OrderSide.BUY)
+            allowed = cap_qty - abs(existing_qty) if same_direction else abs(existing_qty) + cap_qty
+            authorized_qty = max(Decimal("0"), allowed).quantize(Decimal("1"), rounding=ROUND_DOWN)
 
             if authorized_qty <= 0:
                 return RiskCheckResult(
@@ -447,7 +484,7 @@ class RiskEngine:
                 position_weights[sym] = weight
 
         top_3_concentration = sum(sorted(position_weights.values(), reverse=True)[:3])
-        if top_3_concentration > 0.60:
+        if top_3_concentration > 0.60 and not self._reduces_exposure(order, quantity, portfolio):
             return RiskCheckResult(
                 check_name="concentration_limit",
                 passed=False,
@@ -484,11 +521,21 @@ class RiskEngine:
                 authorized_quantity=quantity,
             )
 
-        price = prices.get(order.symbol) or (order.limit_price or Decimal("1"))
-        new_market_value = portfolio.total_market_value + quantity * price
-        new_leverage = float(new_market_value / portfolio.total_equity)
+        price = self._price_for(order, portfolio, prices)
+        # Gross exposure after the order: other positions unchanged, this symbol re-sized
+        gross = sum(
+            (
+                abs(pos.quantity * (pos.current_price or pos.average_cost))
+                for sym, pos in portfolio.positions.items()
+                if sym != order.symbol
+            ),
+            Decimal("0"),
+        )
+        new_qty = self._existing_qty(order, portfolio) + self._signed(order, quantity)
+        gross += abs(new_qty) * price
+        new_leverage = float(gross / portfolio.total_equity)
 
-        if new_leverage > max_leverage:
+        if new_leverage > max_leverage and not self._reduces_exposure(order, quantity, portfolio):
             return RiskCheckResult(
                 check_name="leverage_limit",
                 passed=False,
