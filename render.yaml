@@ -50,6 +50,7 @@ services:
     name: trading-redis
     plan: free
     maxmemoryPolicy: allkeys-lru
+    ipAllowList: []          # Empty = allow all (internal Render network only)
 
 databases:
   # --- PostgreSQL ---
