@@ -13,7 +13,7 @@ from typing import AsyncGenerator
 import structlog
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from src.api.middleware.logging_middleware import RequestLoggingMiddleware
 from src.api.routes import health, portfolio, risk, strategies
@@ -76,6 +76,11 @@ def create_app() -> FastAPI:
     )
 
     # --- Routes ---
+    @app.get("/", include_in_schema=False)
+    async def root() -> RedirectResponse:
+        """Send visitors at the bare URL to the API docs (or health check if docs are off)."""
+        return RedirectResponse(url="/docs" if app.docs_url else "/health/")
+
     app.include_router(health.router)
     app.include_router(portfolio.router)
     app.include_router(strategies.router)
