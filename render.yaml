@@ -1,0 +1,59 @@
+services:
+  # --- FastAPI Trading Engine ---
+  - type: web
+    name: trading-engine
+    runtime: docker
+    dockerfilePath: ./docker/Dockerfile
+    plan: free
+    healthCheckPath: /health/
+    envVars:
+      - key: APP_ENV
+        value: paper
+      - key: APP_PORT
+        value: 8000
+      - key: LOG_LEVEL
+        value: INFO
+      - key: ALPACA_API_KEY
+        sync: false          # Set manually in Render dashboard
+      - key: ALPACA_SECRET_KEY
+        sync: false
+      - key: ALPACA_BASE_URL
+        value: https://paper-api.alpaca.markets
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4o
+      - key: POLYGON_API_KEY
+        sync: false
+      - key: APP_SECRET_KEY
+        generateValue: true  # Render auto-generates a secure value
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: trading-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: trading-redis
+          type: redis
+          property: connectionString
+      - key: RISK_MAX_POSITION_PCT
+        value: "0.10"
+      - key: RISK_MAX_DRAWDOWN_PCT
+        value: "0.15"
+      - key: RISK_MAX_DAILY_LOSS_PCT
+        value: "0.03"
+
+  # --- Redis ---
+  - type: redis
+    name: trading-redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+
+databases:
+  # --- PostgreSQL ---
+  - name: trading-db
+    plan: free
+    databaseName: trading_engine
+    user: trader
