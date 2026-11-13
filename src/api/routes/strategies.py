@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
 
+# Import strategy modules so their @register_strategy decorators run
+import src.strategies.quant.mean_reversion  # noqa: F401
+import src.strategies.quant.momentum  # noqa: F401
+import src.strategies.quant.pairs_trading  # noqa: F401
 from src.strategies.base.strategy import list_strategies
 
 router = APIRouter(prefix="/strategies", tags=["strategies"])
