@@ -4,6 +4,7 @@ services:
     name: trading-engine
     runtime: docker
     dockerfilePath: ./docker/Dockerfile
+    dockerCommand: python -m src.main api --host 0.0.0.0
     plan: free
     healthCheckPath: /health/
     envVars:
